@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X32 Channel</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div x-data="channelDetail" class="page">
+
+  <header class="header">
+    <button @click="window.location.href='index.html'" class="back-link">← Scenes</button>
+    <template x-if="scene">
+      <div class="scene-title">
+        <h1>
+          <template x-if="ch">
+            <span class="ch-color-dot" :style="'background:' + x32Color(ch.color)"
+                  style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle;flex-shrink:0"></span>
+          </template>
+          <span x-text="ch?.name || scene.file_name"></span>
+          <span class="badge badge-channel" style="vertical-align:middle;margin-left:6px;">CHN</span>
+        </h1>
+        <div class="scene-meta"
+             x-text="scene.file_name + ' · Modified ' + formatDate(scene.last_modified ?? 0)"></div>
+      </div>
+    </template>
+  </header>
+
+  <!-- Variant: "add this preset" banner -->
+  <template x-if="variant">
+    <div class="variant-banner">
+      <div class="variant-banner-info">
+        <span>Adding to variant of <strong x-text="variant.baseName"></strong></span>
+      </div>
+      <div class="variant-banner-actions">
+        <template x-if="baseChannels.length > 0">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="text-muted" style="font-size:12px;white-space:nowrap">Apply to:</span>
+            <select x-model="variantChannelIndex" class="patch-select" style="flex:none;width:auto">
+              <template x-for="ch in baseChannels" :key="ch.idx">
+                <option :value="String(ch.idx)"
+                        x-text="'Ch ' + ch.idx + (ch.name ? ' · ' + ch.name : '')"></option>
+              </template>
+            </select>
+            <button @click="addToVariant()" class="btn-primary">Add preset</button>
+          </div>
+        </template>
+        <template x-if="!baseChannels.length">
+          <span class="text-muted" style="font-size:12px">Cannot load base scene</span>
+        </template>
+        <button @click="discardVariant()" class="back-link"
+                style="color:var(--red);font-size:12px;margin-left:4px">Discard</button>
+      </div>
+    </div>
+  </template>
+
+  <main class="main">
+
+    <div x-show="loading" class="status-msg">Loading…</div>
+
+    <template x-if="!loading && ch">
+      <div>
+
+        <!-- Notes -->
+        <div class="note-section">
+          <div class="note-label">Notes</div>
+          <textarea
+            x-model="note"
+            @blur="saveNote()"
+            class="note-textarea"
+            placeholder="Add notes for this channel…"
+            rows="4"
+          ></textarea>
+          <div class="saved-flash" :style="savedFlash ? 'opacity:1' : 'opacity:0'">Saved ✓</div>
+        </div>
+
+        <!-- EQ -->
+        <template x-if="ch.eq">
+          <div class="detail-section">
+            <div class="detail-label">
+              EQ
+              <span class="detail-status" :class="ch.eq.enabled ? 'on' : 'off'"
+                    x-text="ch.eq.enabled ? 'ON' : 'OFF'"></span>
+            </div>
+            <canvas class="eq-detail-canvas" x-ref="eqCanvas"></canvas>
+            <table class="band-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Type</th><th>Freq</th><th>Gain</th><th>Q</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-if="ch.eq.low_cut_freq > 0">
+                  <tr :class="ch.eq.low_cut_enabled ? '' : 'band-off'">
+                    <td class="band-num">LC</td>
+                    <td>LCut</td>
+                    <td x-text="formatFreq(ch.eq.low_cut_freq)"></td>
+                    <td>24 dB/oct</td>
+                    <td class="text-muted">—</td>
+                  </tr>
+                </template>
+                <template x-for="(band, i) in ch.eq.bands" :key="i">
+                  <template x-if="band">
+                    <tr>
+                      <td class="band-num" x-text="i + 1"></td>
+                      <td x-text="band.type"></td>
+                      <td x-text="formatFreq(band.freq)"></td>
+                      <td x-text="formatDb(band.gain)"></td>
+                      <td x-text="band.q.toFixed(1)"></td>
+                    </tr>
+                  </template>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </template>
+
+        <!-- Compressor + Gate -->
+        <div class="dyn-row">
+
+          <template x-if="ch.compressor">
+            <div class="dyn-section">
+              <div class="detail-label">
+                Compressor
+                <span class="detail-status" :class="ch.compressor.enabled ? 'on' : 'off'"
+                      x-text="ch.compressor.enabled ? 'ON' : 'OFF'"></span>
+              </div>
+              <div class="dyn-body">
+                <canvas class="dyn-canvas" x-ref="compCanvas"></canvas>
+                <dl class="dyn-params">
+                  <dt>Mode</dt>   <dd x-text="ch.compressor.mode + ' · ' + ch.compressor.det + '/' + ch.compressor.env"></dd>
+                  <dt>Thresh</dt> <dd x-text="ch.compressor.threshold.toFixed(1) + ' dB'"></dd>
+                  <dt>Ratio</dt>  <dd x-text="ch.compressor.ratio.toFixed(1) + ':1'"></dd>
+                  <dt>Knee</dt>   <dd x-text="ch.compressor.knee === 0 ? 'Hard' : (ch.compressor.knee * 3) + ' dB'"></dd>
+                  <dt>Makeup</dt> <dd x-text="'+' + ch.compressor.makeup.toFixed(1) + ' dB'"></dd>
+                  <dt>Attack</dt> <dd x-text="ch.compressor.attack.toFixed(0) + ' ms'"></dd>
+                  <dt>Hold</dt>   <dd x-text="ch.compressor.hold.toFixed(0) + ' ms'"></dd>
+                  <dt>Release</dt><dd x-text="ch.compressor.release.toFixed(0) + ' ms'"></dd>
+                </dl>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="ch.gate">
+            <div class="dyn-section">
+              <div class="detail-label">
+                Gate
+                <span class="detail-status" :class="ch.gate.enabled ? 'on' : 'off'"
+                      x-text="ch.gate.enabled ? 'ON' : 'OFF'"></span>
+              </div>
+              <div class="dyn-body">
+                <canvas class="dyn-canvas" x-ref="gateCanvas"></canvas>
+                <dl class="dyn-params">
+                  <dt>Type</dt>   <dd x-text="ch.gate.type"></dd>
+                  <dt>Thresh</dt> <dd x-text="ch.gate.threshold.toFixed(1) + ' dB'"></dd>
+                  <dt>Range</dt>  <dd x-text="ch.gate.range.toFixed(1) + ' dB'"></dd>
+                  <dt>Attack</dt> <dd x-text="ch.gate.attack.toFixed(0) + ' ms'"></dd>
+                  <dt>Hold</dt>   <dd x-text="ch.gate.hold.toFixed(0) + ' ms'"></dd>
+                  <dt>Release</dt><dd x-text="ch.gate.release.toFixed(0) + ' ms'"></dd>
+                </dl>
+              </div>
+            </div>
+          </template>
+
+        </div><!-- .dyn-row -->
+
+      </div>
+    </template>
+
+    <template x-if="!loading && !ch">
+      <div class="status-msg">No channel data found. <a href="index.html">Go back</a>.</div>
+    </template>
+
+  </main>
+
+  <div x-show="offline" class="offline-banner">Server unreachable</div>
+
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/variant.js"></script>
+<script src="components/eq-curve.js"></script>
+<script src="components/eq-detail.js"></script>
+<script src="components/dyn-graph.js"></script>
+<script src="js/app.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+#2.7# 60 "" 0 %0011111100110000 1
+/config "Dave" 50 YE
+/delay OFF   0.3
+/preamp +0.0 OFF ON 24 121
+/gate OFF GATE -33.5 55.0 26 0.02  315 0
+/gate/filter OFF 3.0 1k39
+/dyn ON COMP RMS LIN -26.0 3.0 0 7.00 65 0.02  504 POST 0 100 OFF
+/dyn/filter OFF 3.0 990.9
+/insert OFF POST OFF
+/eq ON
+/eq/1 PEQ 376.7 -14.7 7.1
+/eq/2 PEQ 611.0 -15.0  10
+/eq/3 PEQ 5k20 +3.50 1.0
+/eq/4 PEQ 153.5 +4.00 1.0
+/mix ON  -3.6 ON +0 OFF   -oo

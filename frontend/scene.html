@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X32 Scene Notes</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div x-data="sceneDetail" class="page">
+
+  <!-- Header -->
+  <header class="header">
+    <button @click="window.location.href='index.html'" class="back-link">← Scenes</button>
+    <template x-if="scene">
+      <div class="scene-title">
+        <h1>
+          <span x-text="scene.file_name"></span>
+          <span class="badge" :class="'badge-' + scene.file_type" x-text="scene.file_type"
+                style="vertical-align: middle; margin-left: 6px;"></span>
+        </h1>
+        <div class="scene-meta" x-text="'Modified ' + formatDate(scene.last_modified ?? 0)"></div>
+      </div>
+    </template>
+    <!-- Show "Create variant…" only when no variant is already in progress for this scene -->
+    <template x-if="scene && (scene.file_type === 'scene' || scene.file_type === 'snippet') && !(variant && variant.basePath === filePath)">
+      <button @click="startVariant()" class="btn-secondary">Create variant…</button>
+    </template>
+  </header>
+
+  <main class="main">
+
+    <!-- Loading -->
+    <div x-show="loading" class="status-msg">Loading…</div>
+
+    <template x-if="!loading && scene">
+
+      <div>
+
+        <!-- Notes -->
+        <div class="note-section">
+          <div class="note-label">Notes</div>
+          <textarea
+            x-model="note"
+            @blur="saveNote()"
+            class="note-textarea"
+            placeholder="Add notes for this scene…"
+            rows="4"
+          ></textarea>
+          <div class="saved-flash" :style="savedFlash ? 'opacity:1' : 'opacity:0'">Saved ✓</div>
+        </div>
+
+        <!-- Variant-in-progress panel -->
+        <template x-if="variant && variant.basePath === filePath">
+          <div class="detail-section">
+            <div class="variant-panel-header">
+              <div class="detail-label" style="margin-bottom:0">Variant in progress</div>
+              <button @click="discardVariant()" class="back-link" style="color:var(--red);font-size:12px">Discard</button>
+            </div>
+
+            <template x-if="!variant.patches.length">
+              <p class="text-muted" style="font-size:13px;margin:8px 0 12px">
+                No presets added yet —
+                <a href="index.html">browse presets</a> to add them.
+              </p>
+            </template>
+
+            <template x-for="patch in variant.patches" :key="patch.channelIndex">
+              <div class="variant-patch-row">
+                <span class="variant-patch-chn" x-text="patch.chnName"></span>
+                <span class="patch-arrow">→</span>
+                <span class="variant-patch-ch"
+                      x-text="'Ch ' + patch.channelIndex + (patch.channelName ? ' · ' + patch.channelName : '')"></span>
+                <button @click="removeVariantPatch(patch.channelIndex)"
+                        class="patch-remove" aria-label="Remove">×</button>
+              </div>
+            </template>
+
+            <a href="index.html" class="back-link"
+               style="display:inline-block;margin:6px 0 14px;font-size:12px">+ Browse presets</a>
+
+            <div class="note-label">Output filename</div>
+            <input :value="variantOutputName"
+                   @input="updateVariantOutputName($event.target.value)"
+                   class="search-input" style="width:100%;margin-bottom:8px"
+                   placeholder="new_scene.scn">
+
+            <div style="display:flex;align-items:center;gap:8px">
+              <span x-show="createError" x-text="createError" class="create-error"></span>
+              <button @click="doCreateScene()"
+                      :disabled="creating || !variant.patches.length"
+                      class="btn-primary" style="margin-left:auto"
+                      x-text="creating ? 'Creating…' : 'Create scene'"></button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Channels -->
+        <div class="channels-label">Channels</div>
+        <div class="channel-grid">
+          <template x-for="ch in sortedChannels" :key="ch.idx">
+            <div class="ch-card" :class="{ muted: !ch.on }" :data-ch="ch.idx">
+
+              <!-- Card header: number, colour dot, name, mute -->
+              <div class="ch-header">
+                <span class="ch-color-dot" :style="'background:' + x32Color(ch.color)"></span>
+                <span class="ch-num" x-text="'Ch ' + ch.idx"></span>
+                <span class="ch-name" x-text="ch.name || '—'"></span>
+                <span x-show="!ch.on" class="ch-mute-badge">MUTE</span>
+              </div>
+
+              <!-- EQ canvas -->
+              <canvas class="eq-canvas"></canvas>
+
+              <!-- Parameters -->
+              <div class="ch-params">
+                <div class="ch-fader" x-text="formatDb(ch.fader_db)"></div>
+                <div class="ch-param" x-show="ch.compressor" x-text="formatComp(ch)"></div>
+                <div class="ch-param" x-show="ch.gate" x-text="formatGate(ch)"></div>
+              </div>
+
+            </div>
+          </template>
+        </div>
+
+      </div>
+
+    </template>
+
+    <!-- No path given -->
+    <template x-if="!loading && !scene && !filePath">
+      <div class="status-msg">No scene selected. <a href="index.html">Go back</a>.</div>
+    </template>
+
+  </main>
+
+  <!-- Offline banner -->
+  <div x-show="offline" class="offline-banner">Server unreachable</div>
+
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/api.js"></script>
+<script src="js/variant.js"></script>
+<script src="components/eq-curve.js"></script>
+<script src="js/app.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+</body>
+</html>
