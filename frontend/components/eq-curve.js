@@ -20,23 +20,28 @@ function _biquadCoeffs(band) {
       a0 = 1 + alpha / A;  a1 = -2 * cw;  a2 = 1 - alpha / A;
       break;
     case 'HShv': {
+      // Shelving filters use a maximally-flat (Butterworth) slope: a 2nd-order
+      // shelf only stays monotonic for Q <= 1/sqrt(2); higher Q adds a resonant
+      // ripple the X32 hardware doesn't produce, so clamp the effective Q here.
       const sqA = Math.sqrt(A);
-      b0 = A * ((A+1) + (A-1)*cw + 2*sqA*alpha);
+      const aS = sw / (2 * Math.min(band.q, Math.SQRT1_2));
+      b0 = A * ((A+1) + (A-1)*cw + 2*sqA*aS);
       b1 = -2 * A * ((A-1) + (A+1)*cw);
-      b2 = A * ((A+1) + (A-1)*cw - 2*sqA*alpha);
-      a0 = (A+1) - (A-1)*cw + 2*sqA*alpha;
+      b2 = A * ((A+1) + (A-1)*cw - 2*sqA*aS);
+      a0 = (A+1) - (A-1)*cw + 2*sqA*aS;
       a1 = 2 * ((A-1) - (A+1)*cw);
-      a2 = (A+1) - (A-1)*cw - 2*sqA*alpha;
+      a2 = (A+1) - (A-1)*cw - 2*sqA*aS;
       break;
     }
     case 'LShv': {
       const sqA = Math.sqrt(A);
-      b0 = A * ((A+1) - (A-1)*cw + 2*sqA*alpha);
+      const aS = sw / (2 * Math.min(band.q, Math.SQRT1_2));
+      b0 = A * ((A+1) - (A-1)*cw + 2*sqA*aS);
       b1 = 2 * A * ((A-1) - (A+1)*cw);
-      b2 = A * ((A+1) - (A-1)*cw - 2*sqA*alpha);
-      a0 = (A+1) + (A-1)*cw + 2*sqA*alpha;
+      b2 = A * ((A+1) - (A-1)*cw - 2*sqA*aS);
+      a0 = (A+1) + (A-1)*cw + 2*sqA*aS;
       a1 = -2 * ((A-1) + (A+1)*cw);
-      a2 = (A+1) + (A-1)*cw - 2*sqA*alpha;
+      a2 = (A+1) + (A-1)*cw - 2*sqA*aS;
       break;
     }
     case 'HCut': // high cut = low pass
